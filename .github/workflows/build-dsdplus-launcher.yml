@@ -1,0 +1,44 @@
+name: Build DSDPlus Launcher
+
+on:
+  push:
+    paths:
+      - "dsdplus-launcher/**"
+      - ".github/workflows/build-dsdplus-launcher.yml"
+  pull_request:
+    paths:
+      - "dsdplus-launcher/**"
+      - ".github/workflows/build-dsdplus-launcher.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: dsdplus-launcher/src/DSDPlusLauncher
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Publish (autonome, exécutable unique)
+        run: >
+          dotnet publish -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DSDPlusLauncher-win-x64
+          path: dsdplus-launcher/src/DSDPlusLauncher/out/DSDPlusLauncher.exe
