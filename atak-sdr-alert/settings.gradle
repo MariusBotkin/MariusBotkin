@@ -1,5 +1,23 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'com.android.application' version '8.7.3'
+    }
+}
+
 rootProject.name = 'atak-sdr-alert'
-// Le module "core" est du Java pur (aucune dépendance Android/ATAK) : il se compile
-// et se teste sur PC. Le module "plugin" se compile uniquement à l'intérieur du SDK
-// ATAK-CIV (voir plugin/README.md), il n'est donc pas inclus ici.
+
+// "core" : Java pur (DSP, détection, rtl_tcp, CoT), compilable et testable partout.
 include 'core'
+
+// "app" : l'application Android autonome. Incluse seulement si un SDK Android est
+// présent (GitHub Actions, Android Studio), pour que "gradle :core:test" marche sans.
+if (System.getenv('ANDROID_HOME') || System.getenv('ANDROID_SDK_ROOT') || file('local.properties').exists()) {
+    include 'app'
+}
+
+// Le dossier "plugin" (plugin ATAK) se compile dans le SDK ATAK-CIV : voir plugin/README.md.

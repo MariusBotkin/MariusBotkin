@@ -1,0 +1,61 @@
+name: APK SDR Alerte
+
+on:
+  push:
+    paths:
+      - 'atak-sdr-alert/**'
+      - '.github/workflows/sdr-alerte-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sdr-alerte-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: atak-sdr-alert
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests du moteur de détection
+        run: ./gradlew :core:test --no-daemon
+
+      - name: Compilation de l'APK
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Préparer l'APK
+        run: cp app/build/outputs/apk/release/app-release.apk SDR-Alerte.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SDR-Alerte-apk
+          path: atak-sdr-alert/SDR-Alerte.apk
+
+      # Une seule version « dernière compilation », remplacée à chaque build.
+      - name: Publier dans les Releases GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete sdr-alerte-latest --cleanup-tag -y || true
+          gh release create sdr-alerte-latest SDR-Alerte.apk \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "SDR Alerte — dernière compilation (build ${GITHUB_RUN_NUMBER})" \
+            --notes "APK compilé automatiquement depuis la branche ${GITHUB_REF_NAME} (commit ${GITHUB_SHA::7}).
+
+          Installation : télécharger SDR-Alerte.apk sur le téléphone, l'ouvrir, autoriser l'installation depuis cette source.
+          Prérequis : application « RTL2832U driver » (Play Store ou F-Droid).
+          Mode d'emploi : atak-sdr-alert/README.md"
