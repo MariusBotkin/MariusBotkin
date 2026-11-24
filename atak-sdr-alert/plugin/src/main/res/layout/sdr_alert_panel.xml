@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/usb_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:text="Clé RTL-SDR : recherche…" />
+
+        <TextView
+            android:id="@+id/engine_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#BBBBBB"
+            android:text="Arrêté" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_start"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Démarrer" />
+
+            <Button
+                android:id="@+id/btn_driver"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Relancer pilote" />
+        </LinearLayout>
+
+        <!-- La cascade est ajoutée par le code (vue personnalisée du plugin). -->
+        <FrameLayout
+            android:id="@+id/waterfall_container"
+            android:layout_width="match_parent"
+            android:layout_height="260dp"
+            android:layout_marginTop="6dp"
+            android:background="#000000" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="#FFFFFF"
+            android:text="Bande" />
+
+        <Spinner
+            android:id="@+id/band_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView android:id="@+id/threshold_label" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/threshold_seek" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:max="27" />
+
+        <TextView android:id="@+id/duration_label" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/duration_seek" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:max="29" />
+
+        <TextView android:id="@+id/cooldown_label" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/cooldown_seek" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:max="59" />
+
+        <TextView android:id="@+id/gain_label" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF" />
+        <SeekBar android:id="@+id/gain_seek" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:max="50" />
+
+        <CheckBox android:id="@+id/cb_sound" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:text="Son" />
+        <CheckBox android:id="@+id/cb_vibrate" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:text="Vibration" />
+        <CheckBox android:id="@+id/cb_cot" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF"
+            android:text="Marqueur sur la carte (type inconnu)" />
+        <CheckBox android:id="@+id/cb_share" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textColor="#FFFFFF"
+            android:text="Partager le marqueur avec l'équipe" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:text="Dernières alertes" />
+
+            <Button
+                android:id="@+id/btn_clear"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Effacer" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/alert_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </LinearLayout>
+</ScrollView>
