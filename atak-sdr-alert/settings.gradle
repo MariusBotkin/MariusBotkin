@@ -1,0 +1,5 @@
+rootProject.name = 'atak-sdr-alert'
+// Le module "core" est du Java pur (aucune dépendance Android/ATAK) : il se compile
+// et se teste sur PC. Le module "plugin" se compile uniquement à l'intérieur du SDK
+// ATAK-CIV (voir plugin/README.md), il n'est donc pas inclus ici.
+include 'core'

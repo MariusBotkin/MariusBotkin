@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  À fusionner avec le AndroidManifest.xml du plugintemplate du SDK ATAK-CIV :
+  garder ses balises <application>/<activity> (découverte du plugin par ATAK) et
+  ajouter uniquement les permissions ci-dessous.
+  Remarque : le plugin tourne dans le processus d'ATAK, ce sont donc les
+  permissions d'ATAK qui s'appliquent ; la clé USB est ouverte par l'application
+  « RTL2832U driver », pas par le plugin.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="fr.mariusbotkin.sdralert.plugin">
+
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name">
+        <!-- Reprendre ici le bloc <activity> / <meta-data> du plugintemplate. -->
+    </application>
+</manifest>
