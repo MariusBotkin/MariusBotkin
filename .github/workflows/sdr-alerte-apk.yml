@@ -59,3 +59,88 @@ jobs:
           Installation : télécharger SDR-Alerte.apk sur le téléphone, l'ouvrir, autoriser l'installation depuis cette source.
           Prérequis : application « RTL2832U driver » (Play Store ou F-Droid).
           Mode d'emploi : atak-sdr-alert/README.md"
+
+  # Plugin ATAK : nécessite un compte tak.gov (secrets TAKREPO_USER / TAKREPO_PASSWORD
+  # du dépôt) pour télécharger l'API ATAK (main.jar) depuis artifacts.tak.gov.
+  plugin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: atak-sdr-alert/plugin
+    env:
+      TAKREPO_USER: ${{ secrets.TAKREPO_USER }}
+      TAKREPO_PASSWORD: ${{ secrets.TAKREPO_PASSWORD }}
+      ATAK_VERSION: '5.8.0'
+    steps:
+      - name: Identifiants tak.gov présents ?
+        id: creds
+        working-directory: .
+        run: |
+          if [ -n "$TAKREPO_USER" ] && [ -n "$TAKREPO_PASSWORD" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Secrets TAKREPO_USER / TAKREPO_PASSWORD absents : compilation du plugin ATAK ignorée."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          fetch-depth: 0   # le plugin takdev calcule la version à partir de l'historique git
+
+      - uses: actions/setup-java@v4
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.creds.outputs.ok == 'true'
+
+      - name: Configuration locale (SDK Android + dépôt tak.gov)
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "takrepo.url=https://artifacts.tak.gov/artifactory/maven"
+            echo "takrepo.user=$TAKREPO_USER"
+            echo "takrepo.password=$TAKREPO_PASSWORD"
+          } > local.properties
+
+      - name: Compilation du plugin (civDebug)
+        if: steps.creds.outputs.ok == 'true'
+        run: ./gradlew assembleCivDebug -PatakVersion="$ATAK_VERSION" --no-daemon --stacktrace
+
+      - name: Compilation du plugin (civRelease)
+        if: steps.creds.outputs.ok == 'true'
+        continue-on-error: true
+        run: ./gradlew assembleCivRelease -PatakVersion="$ATAK_VERSION" --no-daemon
+
+      - name: Rassembler les APK
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          mkdir -p out
+          find app/build/outputs/apk -name '*.apk' -exec cp {} out/ \;
+          rm -f local.properties
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          name: SDR-Alerte-plugin-ATAK
+          path: atak-sdr-alert/plugin/out/*.apk
+
+      - name: Publier dans les Releases GitHub
+        if: steps.creds.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete sdr-alerte-plugin-latest --cleanup-tag -y || true
+          gh release create sdr-alerte-plugin-latest out/*.apk \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Plugin ATAK SDR Alerte — ATAK ${ATAK_VERSION} (build ${GITHUB_RUN_NUMBER})" \
+            --notes "Plugin ATAK-CIV ${ATAK_VERSION} compilé automatiquement (commit ${GITHUB_SHA::7}).
+
+          Installation : installer l'APK, puis dans ATAK : Paramètres > Outils > Gestion des plugins (Plugins), charger « SDR Alerte ».
+          Prérequis : application « RTL2832U driver ». Mode d'emploi : atak-sdr-alert/plugin/README.md"

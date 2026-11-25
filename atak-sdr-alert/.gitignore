@@ -4,3 +4,6 @@ build/
 local.properties
 .idea/
 *.iml
+.takdev/
+plugin/out/
+plugin/app/proguard-gradle-repackage.txt

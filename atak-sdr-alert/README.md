@@ -4,8 +4,9 @@ Deux formes, même moteur :
 
 - **Application Android « SDR Alerte »** (`app/`) — prête à installer, sans SDK ATAK.
   Elle envoie ses marqueurs d'alerte à l'ATAK du téléphone par le réseau local.
-- **Plugin ATAK-CIV** (`plugin/`) — intégré au panneau ATAK, à compiler avec le SDK
-  tak.gov (voir `plugin/README.md`).
+- **Plugin ATAK-CIV 5.8.0** (`plugin/`) — intégré à ATAK (bouton + panneau), compilé
+  automatiquement par GitHub Actions dès que des identifiants tak.gov sont ajoutés en
+  secrets du dépôt (voir `plugin/README.md`).
 
 Avec une clé RTL-SDR branchée en USB OTG, elles permettent de :
 
@@ -51,8 +52,8 @@ atak-sdr-alert/
 ├── core/      Java pur, sans Android : DSP, bandes, détection, client rtl_tcp, CoT.
 │              Compilé et testé sur PC (./gradlew :core:test).
 ├── app/       Application Android autonome (écran, service d'arrière-plan, CoT UDP).
-└── plugin/    Plugin ATAK : panneau, cascade, USB, alertes, CoT.
-               Se compile à l'intérieur du SDK ATAK-CIV (voir plugin/README.md).
+└── plugin/    Plugin ATAK 5.8.0 (projet Gradle basé sur le plugintemplate officiel) :
+               panneau, cascade, USB, alertes, CoT. Voir plugin/README.md.
 ```
 
 ### Chaîne de traitement
@@ -107,7 +108,7 @@ rtl_tcp (signal synthétique sur PMR 9 qui déclenche l'alerte, changement de ba
 
 1. ✅ Cœur DSP + détection + client rtl_tcp + CoT (testés).
 2. ✅ Application Android autonome, APK compilé par GitHub Actions.
-3. ✅ Code du plugin : panneau, cascade, détection USB, alertes, CoT.
+3. ✅ Plugin aligné sur le plugintemplate officiel (API IPlugin), compilation CI prête.
 4. ⏳ Test réel de l'APK sur le S22 Ultra avec un talkie PMR446.
-5. ⏳ Intégration dans le plugintemplate du SDK et premier chargement sur le S22 Ultra.
+5. ⏳ Identifiants tak.gov en secrets GitHub, puis premier chargement du plugin dans ATAK 5.8.0.
 6. Plus tard : écoute audio NFM du canal en alerte, HackRF (2,4 / 5,8 GHz).

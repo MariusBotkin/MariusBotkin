@@ -1,7 +1,6 @@
 package fr.mariusbotkin.sdralert.plugin;
 
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Color;
 import android.hardware.usb.UsbDevice;
 import android.view.View;
@@ -18,8 +17,6 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.atak.plugins.impl.PluginLayoutInflater;
-import com.atakmap.android.dropdown.DropDown.OnStateListener;
-import com.atakmap.android.dropdown.DropDownReceiver;
 import com.atakmap.android.maps.MapView;
 
 import fr.mariusbotkin.sdralert.core.band.Band;
@@ -31,12 +28,12 @@ import fr.mariusbotkin.sdralert.core.engine.MonitorEngine;
 import java.util.List;
 import java.util.Locale;
 
-/** Panneau latéral : état de la clé, marche/arrêt, cascade, réglages, historique. */
-public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStateListener {
-    public static final String SHOW_PLUGIN = "fr.mariusbotkin.sdralert.SHOW_PLUGIN";
+/** Contenu du panneau : état de la clé, marche/arrêt, cascade, réglages, historique. */
+final class SdrAlertPanel {
     private static final int MAX_ALERT_ROWS = 30;
 
     private final Context pluginContext;
+    private final MapView mapView;
     private final SdrAlertController controller;
     private final UsbDongleMonitor usb;
     private final View root;
@@ -47,13 +44,12 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
     private final LinearLayout alertList;
     private final List<Band> bands = Bands.all();
 
-    public SdrAlertDropDownReceiver(MapView mapView, Context context,
-                                    SdrAlertController controller, UsbDongleMonitor usb) {
-        super(mapView);
-        this.pluginContext = context;
+    SdrAlertPanel(Context pluginContext, MapView mapView, SdrAlertController controller, UsbDongleMonitor usb) {
+        this.pluginContext = pluginContext;
+        this.mapView = mapView;
         this.controller = controller;
         this.usb = usb;
-        root = PluginLayoutInflater.inflate(context, R.layout.sdr_alert_panel, null);
+        root = PluginLayoutInflater.inflate(pluginContext, R.layout.sdr_alert_panel, null);
 
         usbStatus = root.findViewById(R.id.usb_status);
         engineStatus = root.findViewById(R.id.engine_status);
@@ -64,7 +60,8 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
         startButton = root.findViewById(R.id.btn_start);
         alertList = root.findViewById(R.id.alert_list);
 
-        waterfall = new WaterfallView(context);
+        // Vue créée par code : pas de vue personnalisée dans le XML (classloader du plugin).
+        waterfall = new WaterfallView(pluginContext);
         ((FrameLayout) root.findViewById(R.id.waterfall_container)).addView(waterfall,
                 new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         waterfall.setBand(controller.config().band);
@@ -77,7 +74,7 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
             @Override
             public void onClick(View v) {
                 if (controller.isRunning()) controller.stop(); else controller.start();
-                refreshButton(controller.isRunning());
+                refreshButton();
             }
         });
         root.findViewById(R.id.btn_driver).setOnClickListener(new View.OnClickListener() {
@@ -98,7 +95,7 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
         usb.addListener(new UsbDongleMonitor.Listener() {
             @Override
             public void onDongleChanged(final UsbDevice d) {
-                getMapView().post(new Runnable() {
+                SdrAlertPanel.this.mapView.post(new Runnable() {
                     @Override
                     public void run() {
                         usbStatus.setText(UsbDongleMonitor.describe(d));
@@ -107,12 +104,25 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
                 });
             }
         });
+        controller.setUiListener(uiListener);
+    }
+
+    View view() {
+        return root;
+    }
+
+    /** Appelé à chaque ouverture du panneau : resynchronise l'état. */
+    void onShown() {
+        usb.refresh();
+        engineStatus.setText(controller.lastStatus());
+        refreshButton();
+        alertList.removeAllViews();
+        for (AlertEvent e : controller.history()) addAlertRow(e, false);
     }
 
     private void setupBandSpinner() {
         Spinner sp = root.findViewById(R.id.band_spinner);
-        ArrayAdapter<Band> adapter = new ArrayAdapter<>(pluginContext,
-                android.R.layout.simple_spinner_item, bands);
+        ArrayAdapter<Band> adapter = new ArrayAdapter<>(pluginContext, android.R.layout.simple_spinner_item, bands);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         sp.setAdapter(adapter);
         for (int i = 0; i < bands.size(); i++) {
@@ -131,54 +141,18 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
         });
     }
 
-    private void setupSeekBars() {
-        final MonitorConfig cfg = controller.config();
-        bindSeek(R.id.threshold_seek, (int) cfg.detector.thresholdDb - 3, new SeekHandler() {
-            @Override
-            public void apply(int p, boolean fromUser) {
-                cfg.detector.thresholdDb = 3 + p;
-                thresholdLabel.setText(String.format(Locale.ROOT, "Seuil : %d dB au-dessus du bruit", 3 + p));
-                if (fromUser) controller.settingsChanged(false);
-            }
-        });
-        bindSeek(R.id.duration_seek, (int) (cfg.detector.minDurationMs / 100) - 1, new SeekHandler() {
-            @Override
-            public void apply(int p, boolean fromUser) {
-                cfg.detector.minDurationMs = (p + 1) * 100L;
-                durationLabel.setText(String.format(Locale.ROOT, "Durée minimale : %d ms", (p + 1) * 100));
-                if (fromUser) controller.settingsChanged(false);
-            }
-        });
-        bindSeek(R.id.cooldown_seek, (int) (cfg.detector.cooldownMs / 5000) - 1, new SeekHandler() {
-            @Override
-            public void apply(int p, boolean fromUser) {
-                cfg.detector.cooldownMs = (p + 1) * 5000L;
-                cooldownLabel.setText(String.format(Locale.ROOT, "Repos entre alertes : %d s", (p + 1) * 5));
-                if (fromUser) controller.settingsChanged(false);
-            }
-        });
-        bindSeek(R.id.gain_seek, cfg.gainTenthsDb < 0 ? 0 : cfg.gainTenthsDb / 10, new SeekHandler() {
-            @Override
-            public void apply(int p, boolean fromUser) {
-                cfg.gainTenthsDb = p == 0 ? -1 : p * 10;
-                gainLabel.setText(p == 0 ? "Gain : automatique" : String.format(Locale.ROOT, "Gain : %d dB", p));
-                if (fromUser) controller.settingsChanged(true);
-            }
-        });
-    }
-
     private interface SeekHandler {
-        void apply(int progress, boolean fromUser);
+        String apply(int progress);
     }
 
-    private void bindSeek(int id, int initial, final SeekHandler h) {
-        SeekBar sb = root.findViewById(id);
+    private void bindSeek(int seekId, final TextView label, int initial, final boolean retune, final SeekHandler h) {
+        SeekBar sb = root.findViewById(seekId);
         sb.setProgress(Math.max(0, Math.min(sb.getMax(), initial)));
-        h.apply(sb.getProgress(), false);
+        label.setText(h.apply(sb.getProgress()));
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
-                h.apply(progress, false);
+                label.setText(h.apply(progress));
             }
 
             @Override
@@ -187,10 +161,47 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
 
             @Override
             public void onStopTrackingTouch(SeekBar s) {
-                // Sauvegarde / ré-accord une seule fois, au relâchement.
-                h.apply(s.getProgress(), true);
+                controller.settingsChanged(retune); // sauvegarde / ré-accord au relâchement
             }
         });
+    }
+
+    private void setupSeekBars() {
+        final MonitorConfig cfg = controller.config();
+        bindSeek(R.id.threshold_seek, thresholdLabel, (int) cfg.detector.thresholdDb - 3, false, new SeekHandler() {
+            @Override
+            public String apply(int p) {
+                cfg.detector.thresholdDb = 3 + p;
+                return String.format(Locale.ROOT, "Seuil : %d dB au-dessus du bruit", 3 + p);
+            }
+        });
+        bindSeek(R.id.duration_seek, durationLabel, (int) (cfg.detector.minDurationMs / 100) - 1, false, new SeekHandler() {
+            @Override
+            public String apply(int p) {
+                cfg.detector.minDurationMs = (p + 1) * 100L;
+                return String.format(Locale.ROOT, "Durée minimale : %d ms", (p + 1) * 100);
+            }
+        });
+        bindSeek(R.id.cooldown_seek, cooldownLabel, (int) (cfg.detector.cooldownMs / 5000) - 1, false, new SeekHandler() {
+            @Override
+            public String apply(int p) {
+                cfg.detector.cooldownMs = (p + 1) * 5000L;
+                return String.format(Locale.ROOT, "Repos entre alertes : %d s", (p + 1) * 5);
+            }
+        });
+        bindSeek(R.id.gain_seek, gainLabel, cfg.gainTenthsDb < 0 ? 0 : cfg.gainTenthsDb / 10, true, new SeekHandler() {
+            @Override
+            public String apply(int p) {
+                cfg.gainTenthsDb = p == 0 ? -1 : p * 10;
+                return p == 0 ? "Gain : automatique" : String.format(Locale.ROOT, "Gain : %d dB", p);
+            }
+        });
+    }
+
+    private void bindCheck(int id, boolean initial, CompoundButton.OnCheckedChangeListener l) {
+        CheckBox cb = root.findViewById(id);
+        cb.setChecked(initial);
+        cb.setOnCheckedChangeListener(l);
     }
 
     private void setupCheckBoxes() {
@@ -225,14 +236,8 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
         });
     }
 
-    private void bindCheck(int id, boolean initial, CompoundButton.OnCheckedChangeListener l) {
-        CheckBox cb = root.findViewById(id);
-        cb.setChecked(initial);
-        cb.setOnCheckedChangeListener(l);
-    }
-
-    private void refreshButton(boolean running) {
-        startButton.setText(running ? "Arrêter" : "Démarrer");
+    private void refreshButton() {
+        startButton.setText(controller.isRunning() ? "Arrêter" : "Démarrer");
     }
 
     private void addAlertRow(AlertEvent e, boolean atTop) {
@@ -248,12 +253,12 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
         @Override
         public void onStatus(String status, boolean running) {
             engineStatus.setText(status);
-            refreshButton(controller.isRunning());
+            refreshButton();
         }
 
         @Override
         public void onSpectrum(MonitorEngine.SpectrumFrame frame) {
-            waterfall.addFrame(frame, controller.config().band);
+            if (waterfall.isShown()) waterfall.addFrame(frame, controller.config().band);
         }
 
         @Override
@@ -261,39 +266,4 @@ public class SdrAlertDropDownReceiver extends DropDownReceiver implements OnStat
             addAlertRow(event, true);
         }
     };
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        if (!SHOW_PLUGIN.equals(intent.getAction())) return;
-        usb.refresh();
-        engineStatus.setText(controller.lastStatus());
-        refreshButton(controller.isRunning());
-        alertList.removeAllViews();
-        for (AlertEvent e : controller.history()) addAlertRow(e, false);
-        showDropDown(root, HALF_WIDTH, FULL_HEIGHT, FULL_WIDTH, HALF_HEIGHT, false, this);
-    }
-
-    @Override
-    public void onDropDownVisible(boolean visible) {
-        // La cascade n'est alimentée que si le panneau est visible ; les alertes, toujours.
-        controller.setUiListener(visible ? uiListener : null);
-    }
-
-    @Override
-    public void onDropDownSelectionRemoved() {
-    }
-
-    @Override
-    public void onDropDownSizeChanged(double width, double height) {
-    }
-
-    @Override
-    public void onDropDownClose() {
-        controller.setUiListener(null);
-    }
-
-    @Override
-    public void disposeImpl() {
-        controller.setUiListener(null);
-    }
 }

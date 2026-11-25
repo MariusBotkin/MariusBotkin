@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- si ce fichier change, incrémenter la version du plugin -->
+<plugin>
+    <extension
+        type="gov.tak.api.plugin.IPlugin"
+        impl="fr.mariusbotkin.sdralert.plugin.SdrAlertPlugin"
+        singleton="true" />
+</plugin>
